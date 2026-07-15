@@ -113,7 +113,6 @@ export function ImportPanel() {
           "linear-gradient(168deg, rgba(230,248,255,0.72) 0%, rgba(150,220,240,0.45) 46%, rgba(120,210,200,0.4) 100%)",
       }}
     >
-      <div className="pointer-events-none absolute left-1/2 top-3 h-1.5 w-16 -translate-x-1/2 rounded-full bg-gradient-to-b from-white/95 to-white/40 shadow-[0_1px_2px_rgba(4,30,70,0.35)]" />
       <div className="flex flex-col gap-5">
         <GithubInput onSubmit={handleGithub} busy={busy} />
 
