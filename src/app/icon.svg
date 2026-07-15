@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9df7ec"/>
+      <stop offset="0.45" stop-color="#33d6f2"/>
+      <stop offset="1" stop-color="#1560d4"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="node" cx="0.35" cy="0.3" r="0.85">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d6f6ff"/>
+    </radialGradient>
+  </defs>
+
+  <!-- glossy aqua tile -->
+  <rect x="1.5" y="1.5" width="29" height="29" rx="7.5"
+        fill="url(#tile)" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.85"/>
+  <!-- top gloss highlight -->
+  <rect x="3" y="3" width="26" height="12.5" rx="6" fill="url(#gloss)"/>
+
+  <!-- connecting edges (drawn under the nodes) -->
+  <g stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-opacity="0.95">
+    <line x1="16" y1="10.5" x2="9.5" y2="22"/>
+    <line x1="16" y1="10.5" x2="22.5" y2="22"/>
+  </g>
+
+  <!-- skill nodes -->
+  <g stroke="#1560d4" stroke-width="0.6">
+    <circle cx="16" cy="10.5" r="3.4" fill="url(#node)"/>
+    <circle cx="9.5" cy="22" r="3" fill="url(#node)"/>
+    <circle cx="22.5" cy="22" r="3" fill="url(#node)"/>
+  </g>
+</svg>
