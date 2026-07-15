@@ -1,65 +1,71 @@
-import Image from "next/image";
+import { GradientBackground } from "@/components/aero/GradientBackground";
+import { ImportPanel } from "@/components/upload/ImportPanel";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <GradientBackground>
+      {/* Scrollable foreground so a tall panel is never clipped on short screens. */}
+      <main className="aero-scroll h-full overflow-y-auto">
+        <div className="flex min-h-full flex-col items-center justify-center gap-5 px-6 py-8">
+          <header className="flex flex-col items-center text-center">
+            <p className="mb-2 font-display text-[12px] font-semibold uppercase tracking-[0.45em] text-white/85 text-shadow-aero">
+              Understand any codebase
+            </p>
+            <Wordmark />
+            <p className="mx-auto mt-3 max-w-lg font-display text-base font-medium text-white/95 text-shadow-aero">
+              Explore a project as a living skill tree — files become nodes,
+              folders become groups, and imports become the paths between them.
+            </p>
+          </header>
+
+          <ImportPanel />
+
+          <p className="font-display text-xs font-medium text-white/75">
+            Everything is read locally or from public GitHub — nothing is stored.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
       </main>
+    </GradientBackground>
+  );
+}
+
+/** Glossy aqua-chrome logo with a bevel, top gloss, and a mirrored reflection. */
+function Wordmark() {
+  const word = "Code Atlas";
+  return (
+    <div className="relative select-none leading-none">
+      <h1
+        className="font-display text-6xl font-bold tracking-tight md:text-7xl"
+        style={{
+          background:
+            "linear-gradient(180deg, #ffffff 0%, #eafaff 34%, #b8ecff 50%, #7fd6ff 51%, #d6f6ff 74%, #ffffff 100%)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          WebkitTextStroke: "1.5px rgba(255,255,255,0.9)",
+          filter:
+            "drop-shadow(0 2px 0 rgba(21,96,212,0.55)) drop-shadow(0 6px 14px rgba(4,20,60,0.5))",
+        }}
+      >
+        {word}
+      </h1>
+      {/* mirrored reflection */}
+      <h1
+        aria-hidden
+        className="font-display absolute left-0 top-full -mt-2 text-6xl font-bold tracking-tight md:text-7xl"
+        style={{
+          transform: "scaleY(-1)",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.5), transparent 55%)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          opacity: 0.35,
+          maskImage: "linear-gradient(180deg, black, transparent 45%)",
+          WebkitMaskImage: "linear-gradient(180deg, black, transparent 45%)",
+        }}
+      >
+        {word}
+      </h1>
     </div>
   );
 }

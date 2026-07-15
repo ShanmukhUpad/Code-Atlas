@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Code Atlas
 
-## Getting Started
+Turn an unfamiliar codebase into an explorable **JRPG skill tree**. Upload a folder or paste a GitHub URL, and Code Atlas parses the project, builds its dependency graph, and renders it as a living map — files are glowing skill gems, folders are collapsible nodes, and imports are the paths between them. Hover for an explanation of a file's role _in the system_; click to drill in.
 
-First, run the development server:
+The look is deliberately **Frutiger Aero** — glossy aqua glass, chrome, bubbles, that late-2000s Wii vibe — with a matching soundtrack and Wii U menu sound effects.
+
+## Features
+
+- **Drill-down skill tree** — starts at the root; click folders to expand, collapse to simplify. Auto-fits as it grows.
+- **Dependency graph** — hexagonal skill-gem nodes colored by role (entry, core, coordinator, component, helper, config), glowing branch + dependency edges, and a "locked/unlocked" highlight for a selected file's connected subtree.
+- **JS/TS + Python parsing** — resolves relative imports, `@/`/`~/` aliases, and Python dotted-module / relative imports (with `__init__.py`).
+- **AI explanations, free & local** — descriptions come from a local [Ollama](https://ollama.com) model (free, unlimited, private), falling back to Claude if a key is set, then to a heuristic. Results are cached in the browser.
+- **Folder + file import** — File System Access API picker (prunes `node_modules`/`.git` before scanning) or GitHub URL, with real upload progress.
+- **Frutiger Aero UI** — custom glass/gloss components, chrome mirror-spheres, film grain, background music, and hover/click SFX.
+
+## Stack
+
+Next.js 16 (App Router) · TypeScript · Tailwind CSS v4 · [React Flow](https://reactflow.dev) (`@xyflow/react`) · Framer Motion · dagre · Zustand.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`npm run dev` also starts a local Ollama server if one isn't already running (it no-ops if Ollama isn't installed).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### AI descriptions (optional but recommended)
 
-## Learn More
+Free and local via Ollama:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# install from https://ollama.com, then pull a model:
+ollama pull nemotron-mini        # fast on CPU (~4s/description)
+# or: ollama pull qwen2.5-coder:7b   # best code quality
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+It's auto-detected on `localhost:11434` — no config needed. See `.env.example` for options (`OLLAMA_MODEL`, `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`). Without any model, Code Atlas uses solid heuristic descriptions.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` — Next dev server + Ollama.
+- `npm run dev:next` — Next only.
+- `npm run build` — production build.
+- `npm run lint` — ESLint.
