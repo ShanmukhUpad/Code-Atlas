@@ -16,7 +16,18 @@ export type NodeRole =
   | "config"
   | "file";
 
-export type Lang = "js" | "py" | "sv" | "c" | "java" | "json" | "ipynb";
+export type Lang =
+  | "js"
+  | "py"
+  | "sv"
+  | "c"
+  | "java"
+  | "json"
+  | "ipynb"
+  | "cs"
+  | "html"
+  | "shader"
+  | "cmake";
 
 /** A parsed Python import statement. */
 export interface PyImport {
@@ -53,6 +64,10 @@ export interface ParsedFile {
   javaImports?: string[];
   /** Declared Java package (only for `lang === "java"`). */
   javaPackage?: string;
+  /** Referenced type-name candidates for C# (only for `lang === "cs"`). */
+  csRefs?: string[];
+  /** Namespaces declared in this C# file (used to classify `using`s). */
+  csNamespaces?: string[];
   /** External (npm/builtin) specifiers, i.e. not resolved to a project file. */
   externalImports: string[];
   /** Project file paths this file depends on (resolved). */

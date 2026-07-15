@@ -108,7 +108,7 @@ export function UploadDropzone({
           Drop a project folder here
         </p>
         <p className="text-sm text-white/80">
-          or click to browse — read locally · JS/TS, Python, C/C++, Java, SystemVerilog &amp; more
+          or click to browse — read locally · JS/TS, Python, C/C++, C#, Java, SystemVerilog, shaders &amp; more
         </p>
       </div>
     </motion.div>

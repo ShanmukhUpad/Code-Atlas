@@ -62,6 +62,20 @@ export function extGlyph(ext: string): string {
       return "{}";
     case ".ipynb":
       return "NB";
+    case ".cs":
+      return "C#";
+    case ".html":
+    case ".htm":
+      return "<>";
+    case ".shader":
+      return "SL";
+    case ".hlsl":
+    case ".cginc":
+    case ".compute":
+      return "HL";
+    case ".cmake":
+    case ".txt": // CMakeLists.txt
+      return "CM";
     default:
       return "•";
   }

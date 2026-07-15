@@ -12,11 +12,21 @@ import { extractSvComponents, resolveSvInclude } from "./systemverilog";
 import { extractCComponents, resolveCInclude } from "./clike";
 import { extractJavaComponents, resolveJavaImport } from "./java";
 import { parseJsonInfo, parseNotebook } from "./data";
+import { extractCsComponents } from "./csharp";
+import {
+  extractCmake,
+  extractHtmlRefs,
+  resolveCmakeRef,
+  resolveHtmlRef,
+} from "./markup";
 
 export const CODE_EXT_RE =
-  /\.(tsx?|jsx?|mjs|cjs|py|sv|svh|v|vh|c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|java|json|ipynb)$/i;
+  /\.(tsx?|jsx?|mjs|cjs|py|sv|svh|v|vh|c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|java|json|ipynb|cs|html?|shader|hlsl|cginc|compute|cmake)$/i;
 const SV_EXT_RE = /\.(sv|svh|v|vh)$/i;
 const C_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+)$/i;
+const SHADER_EXT_RE = /\.(shader|hlsl|cginc|compute)$/i;
+// CMakeLists.txt has no code extension — match it by basename.
+const CMAKE_RE = /(^|\/)CMakeLists\.txt$|\.cmake$/i;
 const IGNORE_DIR_RE =
   /(^|\/)(node_modules|\.git|\.next|dist|build|out|coverage|\.turbo|\.vercel)(\/|$)/;
 // Machine-generated JSON that would only add giant, meaningless nodes.
@@ -24,7 +34,7 @@ const IGNORE_FILE_RE = /(^|\/)(package-lock|npm-shrinkwrap)\.json$/i;
 
 export function isCodeFile(path: string): boolean {
   return (
-    CODE_EXT_RE.test(path) &&
+    (CODE_EXT_RE.test(path) || CMAKE_RE.test(path)) &&
     !IGNORE_DIR_RE.test(path) &&
     !IGNORE_FILE_RE.test(path) &&
     !/\.d\.ts$/i.test(path)
@@ -150,6 +160,60 @@ function parseFile(file: RawFile): ParsedFile {
     };
   }
 
+  if (ext === ".cs") {
+    const cs = extractCsComponents(content);
+    return {
+      ...common,
+      lang: "cs",
+      imports: cs.usings,
+      csRefs: cs.refs,
+      csNamespaces: cs.namespaces,
+      exports: cs.defines,
+      hasJsx: false,
+      hasMain: /\bstatic\s+[\w<>,\[\]\s]*\bMain\s*\(/.test(content),
+      header: extractHeader(content),
+    };
+  }
+
+  if (ext === ".html" || ext === ".htm") {
+    return {
+      ...common,
+      lang: "html",
+      imports: extractHtmlRefs(content),
+      exports: [],
+      hasJsx: false,
+      header: /<title[^>]*>([^<]+)<\/title>/i.exec(content)?.[1]?.trim(),
+    };
+  }
+
+  if (SHADER_EXT_RE.test(ext)) {
+    const c = extractCComponents(content);
+    const names = [...c.exports];
+    const shaderName = /\bShader\s+"([^"]+)"/.exec(content)?.[1];
+    if (shaderName) names.unshift(shaderName);
+    return {
+      ...common,
+      lang: "shader",
+      imports: [],
+      cIncludes: c.includes,
+      exports: names,
+      hasJsx: false,
+      header: extractHeader(content),
+    };
+  }
+
+  if (CMAKE_RE.test(path)) {
+    const cm = extractCmake(content);
+    return {
+      ...common,
+      lang: "cmake",
+      imports: [...cm.subdirs, ...cm.includes],
+      exports: cm.targets,
+      hasJsx: false,
+      header: undefined,
+    };
+  }
+
   return {
     ...common,
     lang: "js",
@@ -186,7 +250,31 @@ function classifyRole(f: ParsedFile, fanIn: number, fanOut: number): NodeRole {
     return "util"; // leaf module
   }
 
-  if (f.lang === "json") return "config";
+  if (f.lang === "json" || f.lang === "cmake") return "config";
+
+  if (f.lang === "cs") {
+    if (f.hasMain) return "entry";
+    if (/Test\b/i.test(f.name) || /(^|\/)tests?\//i.test(f.path)) return "util";
+    if (fanIn >= 4 && fanIn >= fanOut) return "hub";
+    if (fanOut >= 6) return "orchestrator";
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "util";
+  }
+
+  if (f.lang === "html") {
+    if (/(^|\/)index\.html?$/i.test(f.path) || fanOut > 0) return "entry";
+    return "file";
+  }
+
+  if (f.lang === "shader") {
+    // .cginc/.hlsl are shared shader includes; .shader/.compute are the programs.
+    const isInclude = /\.(cginc|hlsl)$/i.test(f.ext);
+    if (isInclude && fanIn >= 3) return "hub";
+    if (isInclude) return "config";
+    if (fanOut >= 3) return "orchestrator";
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "component";
+  }
 
   if (f.lang === "ipynb") {
     // Notebooks are top-level and never imported; entry when they pull in code.
@@ -240,9 +328,22 @@ export function parseProject(rawFiles: RawFile[]): ParsedProject {
     for (const name of p.exports) if (!svRegistry.has(name)) svRegistry.set(name, p.path);
   }
 
-  // Include/import resolution for C and Java is restricted to same-language files.
+  // Include/import resolution for C, Java, and shaders is restricted to same-kind files.
   const cFileSet = new Set(parsed.filter((p) => p.lang === "c").map((p) => p.path));
   const javaFileSet = new Set(parsed.filter((p) => p.lang === "java").map((p) => p.path));
+  const shaderFileSet = new Set(
+    parsed.filter((p) => p.lang === "shader").map((p) => p.path),
+  );
+
+  // C# is name-based like SV: map every declared type name to its file, and
+  // collect declared namespaces so internal `using`s aren't flagged as external.
+  const csRegistry = new Map<string, string>();
+  const csNamespaces = new Set<string>();
+  for (const p of parsed) {
+    if (p.lang !== "cs") continue;
+    for (const name of p.exports) if (!csRegistry.has(name)) csRegistry.set(name, p.path);
+    for (const ns of p.csNamespaces ?? []) csNamespaces.add(ns);
+  }
 
   // Resolve dependencies + accumulate dependents.
   const dependents = new Map<string, string[]>();
@@ -273,6 +374,39 @@ export function parseProject(rawFiles: RawFile[]): ParsedProject {
       }
     } else if (p.lang === "json") {
       // Data files have no dependencies.
+    } else if (p.lang === "cs") {
+      // Type references resolved by name → precise cross-file edges.
+      for (const ref of p.csRefs ?? []) {
+        const target = csRegistry.get(ref);
+        if (target && target !== p.path) deps.add(target);
+      }
+      // `using`s only label external libraries (UnityEngine, System, …).
+      for (const use of p.imports) {
+        const internal =
+          csNamespaces.has(use) ||
+          [...csNamespaces].some((ns) => ns.startsWith(use + ".") || use.startsWith(ns + "."));
+        if (!internal) external.push(use.split(".")[0] || use);
+      }
+    } else if (p.lang === "html") {
+      for (const spec of p.imports) {
+        const target = resolveHtmlRef(spec, p.path, fileSet);
+        if (target && target !== p.path) deps.add(target);
+      }
+    } else if (p.lang === "shader") {
+      for (const inc of p.cIncludes ?? []) {
+        if (inc.system) {
+          external.push(inc.spec);
+          continue;
+        }
+        const target = resolveCInclude(inc.spec, p.path, shaderFileSet);
+        if (target && target !== p.path) deps.add(target);
+        else external.push(inc.spec);
+      }
+    } else if (p.lang === "cmake") {
+      for (const spec of p.imports) {
+        const target = resolveCmakeRef(spec, p.path, fileSet);
+        if (target && target !== p.path) deps.add(target);
+      }
     } else if (p.lang === "sv") {
       // Name-based refs (instantiations, `extends`, `::` scopes) → registry.
       for (const ref of p.svRefs ?? []) {
