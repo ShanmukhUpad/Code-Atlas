@@ -29,7 +29,7 @@ export function DetailPanel() {
   const open = Boolean(file || folder);
 
   const goTo = (path: string) => {
-    playSfx("click");
+    playSfx("select");
     revealPath(path); // expand ancestors so the target actually appears
     ensureHeuristic(path);
     void requestAi(path);

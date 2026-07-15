@@ -32,7 +32,7 @@ export default function Home() {
 
 /** Glossy aqua-chrome logo with a bevel, top gloss, and a mirrored reflection. */
 function Wordmark() {
-  const word = "Code Atlas";
+  const word = "Codebase Mapper";
   return (
     <div className="relative select-none leading-none">
       <h1

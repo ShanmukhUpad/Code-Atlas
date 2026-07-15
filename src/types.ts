@@ -1,4 +1,4 @@
-// Shared domain types for Code Atlas.
+// Shared domain types for Codebase Mapper.
 
 /** A raw source file pulled from an upload or a GitHub repo. */
 export interface RawFile {

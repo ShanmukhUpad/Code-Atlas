@@ -9,12 +9,14 @@ import { useAtlas } from "@/store";
 //   click   ← wiiu/00273  (142ms select/confirm — snappy, distinct from hover)
 //   back    ← wiiu/00275  (82ms cancel — distinct from the hover tick)
 //   open    ← wiiu/00280  (297ms open flourish)
+//   select  ← wiiu/00252  (plays when a file/folder node is clicked)
 //   success ← wiiu/00244  (680ms arrival jingle, plays on entering the map)
 export const SFX = {
   hover: "/sounds/hover.wav",
   click: "/sounds/click.wav",
   open: "/sounds/open.wav",
   back: "/sounds/back.wav",
+  select: "/sounds/select.wav",
   success: "/sounds/success.wav",
 } as const;
 
@@ -26,6 +28,7 @@ const VOLUME: Record<SfxName, number> = {
   click: 0.5,
   back: 0.45,
   open: 0.5,
+  select: 0.5,
   success: 0.4,
 };
 

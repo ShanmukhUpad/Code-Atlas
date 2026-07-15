@@ -22,7 +22,7 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
-  title: "Code Atlas",
+  title: "Codebase Mapper",
   description:
     "Understand an unfamiliar codebase as a connected system, not a pile of files.",
 };

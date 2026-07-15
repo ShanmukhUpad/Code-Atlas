@@ -1,8 +1,8 @@
-# Code Atlas
+# Codebase Mapper
 
 **Live:** [codebase-mapper.vercel.app](https://codebase-mapper.vercel.app)
 
-Turn an unfamiliar codebase into an explorable **JRPG skill tree**. Upload a folder or paste a GitHub URL, and Code Atlas parses the project, builds its dependency graph, and renders it as a living map — files are glowing skill gems, folders are collapsible nodes, and imports are the paths between them. Hover for an explanation of a file's role _in the system_; click to drill in.
+Turn an unfamiliar codebase into an explorable **JRPG skill tree**. Upload a folder or paste a GitHub URL, and Codebase Mapper parses the project, builds its dependency graph, and renders it as a living map — files are glowing skill gems, folders are collapsible nodes, and imports are the paths between them. Hover for an explanation of a file's role _in the system_; click to drill in.
 
 The look is deliberately **Frutiger Aero** — glossy aqua glass, chrome, bubbles, that late-2000s Wii vibe — with a matching soundtrack and Wii U menu sound effects.
 

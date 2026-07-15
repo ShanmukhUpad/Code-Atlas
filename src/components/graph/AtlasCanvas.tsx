@@ -72,14 +72,13 @@ function Flow() {
       const key = node.data.path;
       select(key);
       ensureHeuristic(key);
+      playSfx("select");
       if (node.data.kind === "folder") {
         const willOpen = !node.data.expanded;
         toggleExpand(key);
-        playSfx(willOpen ? "open" : "back");
         if (willOpen) void requestAi(key);
       } else {
         void requestAi(key);
-        playSfx("click");
       }
     },
     [select, toggleExpand],
