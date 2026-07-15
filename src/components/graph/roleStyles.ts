@@ -38,6 +38,30 @@ export function extGlyph(ext: string): string {
       return "JS";
     case ".py":
       return "PY";
+    case ".sv":
+    case ".svh":
+      return "SV";
+    case ".v":
+    case ".vh":
+      return "V";
+    case ".cpp":
+    case ".cc":
+    case ".cxx":
+    case ".c++":
+    case ".hpp":
+    case ".hh":
+    case ".hxx":
+    case ".h++":
+      return "C++";
+    case ".c":
+    case ".h":
+      return "C";
+    case ".java":
+      return "JV";
+    case ".json":
+      return "{}";
+    case ".ipynb":
+      return "NB";
     default:
       return "•";
   }

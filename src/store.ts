@@ -93,7 +93,7 @@ export const useAtlas = create<AtlasState>((set, get) => ({
     if (project.files.length === 0) {
       set({
         status: "error",
-        error: "No JS/TS source files were found in that project.",
+        error: "No supported source files were found in that project.",
       });
       return;
     }

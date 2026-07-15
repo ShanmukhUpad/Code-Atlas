@@ -10,6 +10,17 @@ const ROLE_LABEL: Record<NodeRole, string> = {
   file: "a standalone file",
 };
 
+// Hardware-flavored role labels for SystemVerilog/Verilog files.
+const SV_ROLE_LABEL: Record<NodeRole, string> = {
+  entry: "a top-level module",
+  hub: "a widely-instantiated block",
+  orchestrator: "a structural/integration module",
+  component: "a module",
+  util: "a leaf module",
+  config: "a shared package/header",
+  file: "a standalone module",
+};
+
 const ROLE_PLURAL: Record<NodeRole, string> = {
   entry: "entry points",
   hub: "core modules",
@@ -35,17 +46,23 @@ function firstSentence(text: string, limit = 160): string {
 
 /** Heuristic explanation for a single file, framed by its role in the system. */
 export function explainFile(f: FileMeta): Explanation {
-  const roleText = ROLE_LABEL[f.role];
+  const roleText = (f.lang === "sv" ? SV_ROLE_LABEL : ROLE_LABEL)[f.role];
   const header = f.header ? firstSentence(f.header) : "";
+
+  const sv = f.lang === "sv";
 
   // ---- hover summary ----
   let summary: string;
   if (header) {
     summary = header;
   } else if (f.role === "entry") {
-    summary = `Entry point — the app reaches this file directly (${f.exports.length} export${f.exports.length === 1 ? "" : "s"}).`;
+    summary = sv
+      ? `Top-level module — instantiates ${f.fanOut} submodule${f.fanOut === 1 ? "" : "s"}; nothing instantiates it.`
+      : `Entry point — the app reaches this file directly (${f.exports.length} export${f.exports.length === 1 ? "" : "s"}).`;
   } else if (f.role === "hub") {
-    summary = `Core module used by ${f.fanIn} other file${f.fanIn === 1 ? "" : "s"} — changes here ripple widely.`;
+    summary = sv
+      ? `Reused block instantiated by ${f.fanIn} module${f.fanIn === 1 ? "" : "s"} — changes here ripple widely.`
+      : `Core module used by ${f.fanIn} other file${f.fanIn === 1 ? "" : "s"} — changes here ripple widely.`;
   } else if (f.role === "component") {
     summary = `UI component${f.fanIn ? `, rendered by ${f.fanIn} file${f.fanIn === 1 ? "" : "s"}` : ""}.`;
   } else if (f.role === "orchestrator") {

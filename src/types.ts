@@ -16,7 +16,7 @@ export type NodeRole =
   | "config"
   | "file";
 
-export type Lang = "js" | "py";
+export type Lang = "js" | "py" | "sv" | "c" | "java" | "json" | "ipynb";
 
 /** A parsed Python import statement. */
 export interface PyImport {
@@ -39,6 +39,20 @@ export interface ParsedFile {
   imports: string[];
   /** Parsed Python imports (only for `lang === "py"`). */
   pyImports?: PyImport[];
+  /** Package names imported via `import pkg::…` (only for `lang === "sv"`). */
+  svImports?: string[];
+  /** `include "…"` specifiers (only for `lang === "sv"`). */
+  svIncludes?: string[];
+  /** Referenced design-unit names — instantiations, `extends`, `::` scopes. */
+  svRefs?: string[];
+  /** Package names declared in this file (subset of exports; role hint). */
+  svPackages?: string[];
+  /** C/C++ `#include` directives (only for `lang === "c"`). */
+  cIncludes?: { spec: string; system: boolean }[];
+  /** Java `import` names, possibly wildcard (only for `lang === "java"`). */
+  javaImports?: string[];
+  /** Declared Java package (only for `lang === "java"`). */
+  javaPackage?: string;
   /** External (npm/builtin) specifiers, i.e. not resolved to a project file. */
   externalImports: string[];
   /** Project file paths this file depends on (resolved). */

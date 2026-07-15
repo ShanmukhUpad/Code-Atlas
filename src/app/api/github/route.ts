@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const result = await fetchRepo(url);
     if (result.files.length === 0) {
       return Response.json(
-        { error: "No JS/TS files found in that repository." },
+        { error: "No supported source files found in that repository." },
         { status: 422 },
       );
     }

@@ -50,7 +50,7 @@ export function ImportPanel() {
   ) {
     if (files.length === 0) {
       setPhase("error");
-      setError("No JS/TS source files were found there.");
+      setError("No supported source files were found there.");
       return;
     }
     setPhase("building");

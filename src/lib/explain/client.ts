@@ -18,6 +18,7 @@ function toItem(
       path,
       kind: "file",
       name: file.name,
+      lang: file.lang,
       role: file.role,
       dir: file.dir,
       exports: file.exports.slice(0, 12),

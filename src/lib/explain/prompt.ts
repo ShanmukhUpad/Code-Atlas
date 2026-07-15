@@ -4,6 +4,8 @@ export interface ExplainItem {
   path: string;
   kind: "file" | "folder";
   name: string;
+  /** Source language: "js", "py", or "sv" (SystemVerilog/Verilog). */
+  lang?: string;
   role?: string;
   dir?: string;
   exports?: string[];
@@ -24,6 +26,7 @@ export interface ExplainResult {
 
 export const SYSTEM_PROMPT = `You are Code Atlas, a guide that helps developers understand an unfamiliar codebase.
 For each file or folder you are given structured facts (its role, what it imports, what imports it, its exports, and any header comment).
+The "lang" field tells you the source kind: "js" (JS/TS), "py" (Python), "c" (C/C++), "java" (Java), "json" (config/data), "ipynb" (Jupyter notebook), or "sv" (SystemVerilog/Verilog hardware). Interpret the facts accordingly — for "sv", "exports" are the modules/interfaces/packages it declares, "dependencies" are modules it instantiates / packages it imports / files it \`include\`s, and "dependents" are modules that instantiate it, so describe it in hardware terms (RTL blocks, instantiation hierarchy, testbenches). For "c" and "java", dependencies are includes/imports. For "json" describe the config/data it holds; for "ipynb" describe the notebook's analysis and the modules it uses.
 Explain what it does and its role in the wider system. Be concise — no filler.
 Return STRICT JSON only, no prose outside JSON, matching:
 {"items":[{"path":"...","summary":"one clause, <= 12 words","role":"1-2 short sentences, <= 35 words total, on its purpose and place in the system"}]}

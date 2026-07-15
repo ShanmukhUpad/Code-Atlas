@@ -8,15 +8,25 @@ import {
   hasPyMain,
   resolvePyImport,
 } from "./python";
+import { extractSvComponents, resolveSvInclude } from "./systemverilog";
+import { extractCComponents, resolveCInclude } from "./clike";
+import { extractJavaComponents, resolveJavaImport } from "./java";
+import { parseJsonInfo, parseNotebook } from "./data";
 
-export const CODE_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|py)$/i;
+export const CODE_EXT_RE =
+  /\.(tsx?|jsx?|mjs|cjs|py|sv|svh|v|vh|c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|java|json|ipynb)$/i;
+const SV_EXT_RE = /\.(sv|svh|v|vh)$/i;
+const C_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+)$/i;
 const IGNORE_DIR_RE =
   /(^|\/)(node_modules|\.git|\.next|dist|build|out|coverage|\.turbo|\.vercel)(\/|$)/;
+// Machine-generated JSON that would only add giant, meaningless nodes.
+const IGNORE_FILE_RE = /(^|\/)(package-lock|npm-shrinkwrap)\.json$/i;
 
 export function isCodeFile(path: string): boolean {
   return (
     CODE_EXT_RE.test(path) &&
     !IGNORE_DIR_RE.test(path) &&
+    !IGNORE_FILE_RE.test(path) &&
     !/\.d\.ts$/i.test(path)
   );
 }
@@ -69,6 +79,77 @@ function parseFile(file: RawFile): ParsedFile {
     };
   }
 
+  if (SV_EXT_RE.test(ext)) {
+    const sv = extractSvComponents(content);
+    return {
+      ...common,
+      lang: "sv",
+      imports: [],
+      svImports: sv.imports,
+      svIncludes: sv.includes,
+      svRefs: sv.refs,
+      svPackages: sv.packages,
+      exports: sv.defines,
+      hasJsx: false,
+      header: extractHeader(content),
+    };
+  }
+
+  if (ext === ".ipynb") {
+    const nb = parseNotebook(content);
+    return {
+      ...common,
+      lang: "ipynb",
+      loc: nb.codeLoc,
+      imports: [],
+      pyImports: extractPyImports(nb.code),
+      exports: extractPyExports(nb.code),
+      hasJsx: false,
+      header: nb.header ?? extractPyHeader(nb.code),
+    };
+  }
+
+  if (ext === ".json") {
+    const j = parseJsonInfo(content);
+    return {
+      ...common,
+      lang: "json",
+      imports: [],
+      exports: j.keys,
+      hasJsx: false,
+      header: j.header,
+    };
+  }
+
+  if (C_EXT_RE.test(ext)) {
+    const c = extractCComponents(content);
+    return {
+      ...common,
+      lang: "c",
+      imports: [],
+      cIncludes: c.includes,
+      exports: c.exports,
+      hasJsx: false,
+      hasMain: c.hasMain,
+      header: extractHeader(content),
+    };
+  }
+
+  if (ext === ".java") {
+    const j = extractJavaComponents(content);
+    return {
+      ...common,
+      lang: "java",
+      imports: [],
+      javaImports: j.imports,
+      javaPackage: j.pkg,
+      exports: j.exports,
+      hasJsx: false,
+      hasMain: j.hasMain,
+      header: extractHeader(content),
+    };
+  }
+
   return {
     ...common,
     lang: "js",
@@ -87,6 +168,45 @@ function classifyRole(f: ParsedFile, fanIn: number, fanOut: number): NodeRole {
       return "util";
     if (fanIn >= 4 && fanIn >= fanOut) return "hub";
     if (fanOut >= 6) return "orchestrator";
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "util";
+  }
+
+  if (f.lang === "sv") {
+    const isPkg = (f.svPackages?.length ?? 0) > 0;
+    const isHeader = /\.(svh|vh)$/i.test(f.ext);
+    // Packages (shared params/types) and header files act as shared config.
+    if (isPkg || isHeader) return "config";
+    if (/(^|[._-])(tb|top|testbench|test)([._-]|$)/i.test(f.name)) return "entry";
+    // Top-level: instantiates submodules but nothing instantiates it.
+    if (fanIn === 0 && fanOut > 0) return "entry";
+    if (fanIn >= 4 && fanIn >= fanOut) return "hub"; // widely-reused block
+    if (fanOut >= 5) return "orchestrator"; // structural/integration module
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "util"; // leaf module
+  }
+
+  if (f.lang === "json") return "config";
+
+  if (f.lang === "ipynb") {
+    // Notebooks are top-level and never imported; entry when they pull in code.
+    return fanOut > 0 ? "entry" : "file";
+  }
+
+  if (f.lang === "c") {
+    if (f.hasMain) return "entry";
+    if (fanIn >= 4 && fanIn >= fanOut) return "hub"; // widely-included header
+    if (fanOut >= 5) return "orchestrator";
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "util";
+  }
+
+  if (f.lang === "java") {
+    if (f.hasMain) return "entry";
+    if (/Tests?\.java$/i.test(f.name) || /(^|\/)tests?\//i.test(f.path))
+      return "util";
+    if (fanIn >= 4 && fanIn >= fanOut) return "hub";
+    if (fanOut >= 5) return "orchestrator";
     if (fanIn === 0 && fanOut === 0) return "file";
     return "util";
   }
@@ -112,16 +232,64 @@ export function parseProject(rawFiles: RawFile[]): ParsedProject {
   const parsed = codeFiles.map(parseFile);
   const fileSet = new Set(parsed.map((p) => p.path));
 
+  // SystemVerilog deps are name-based: map every declared design-unit name
+  // (module/interface/package/class…) to the file that declares it.
+  const svRegistry = new Map<string, string>();
+  for (const p of parsed) {
+    if (p.lang !== "sv") continue;
+    for (const name of p.exports) if (!svRegistry.has(name)) svRegistry.set(name, p.path);
+  }
+
+  // Include/import resolution for C and Java is restricted to same-language files.
+  const cFileSet = new Set(parsed.filter((p) => p.lang === "c").map((p) => p.path));
+  const javaFileSet = new Set(parsed.filter((p) => p.lang === "java").map((p) => p.path));
+
   // Resolve dependencies + accumulate dependents.
   const dependents = new Map<string, string[]>();
   for (const p of parsed) {
     const deps = new Set<string>();
     const external: string[] = [];
-    if (p.lang === "py") {
+    if (p.lang === "py" || p.lang === "ipynb") {
       for (const imp of p.pyImports ?? []) {
         const { deps: d, external: ext } = resolvePyImport(imp, p.path, fileSet);
         for (const x of d) if (x !== p.path) deps.add(x);
         if (ext) external.push(ext);
+      }
+    } else if (p.lang === "c") {
+      for (const inc of p.cIncludes ?? []) {
+        if (inc.system) {
+          external.push(inc.spec);
+          continue;
+        }
+        const target = resolveCInclude(inc.spec, p.path, cFileSet);
+        if (target && target !== p.path) deps.add(target);
+        else external.push(inc.spec);
+      }
+    } else if (p.lang === "java") {
+      for (const name of p.javaImports ?? []) {
+        const { deps: d, external: ext } = resolveJavaImport(name, javaFileSet);
+        for (const x of d) if (x !== p.path) deps.add(x);
+        if (ext) external.push(ext);
+      }
+    } else if (p.lang === "json") {
+      // Data files have no dependencies.
+    } else if (p.lang === "sv") {
+      // Name-based refs (instantiations, `extends`, `::` scopes) → registry.
+      for (const ref of p.svRefs ?? []) {
+        const target = svRegistry.get(ref);
+        if (target && target !== p.path) deps.add(target);
+      }
+      // `import pkg::…` → registry; unresolved packages are external libraries.
+      for (const pkg of p.svImports ?? []) {
+        const target = svRegistry.get(pkg);
+        if (target && target !== p.path) deps.add(target);
+        else if (!target) external.push(pkg);
+      }
+      // `include "…"` → path-based against project files.
+      for (const inc of p.svIncludes ?? []) {
+        const target = resolveSvInclude(inc, p.path, fileSet);
+        if (target && target !== p.path) deps.add(target);
+        else if (!target) external.push(inc);
       }
     } else {
       for (const spec of p.imports) {
