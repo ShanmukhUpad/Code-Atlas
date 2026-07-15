@@ -13,15 +13,16 @@ export default function Home() {
             </p>
             <Wordmark />
             <p className="mx-auto mt-3 max-w-lg font-display text-base font-medium text-white/95 text-shadow-aero">
-              Explore a project as a living skill tree — files become nodes,
-              folders become groups, and imports become the paths between them.
+              Understand an unfamiliar codebase as a connected system rather
+              than a pile of files. See how everything fits together, and how a
+              change in one place ripples through the rest.
             </p>
           </header>
 
           <ImportPanel />
 
           <p className="font-display text-xs font-medium text-white/75">
-            Everything is read locally or from public GitHub — nothing is stored.
+            Everything is read locally or from public GitHub. Nothing is stored.
           </p>
         </div>
       </main>

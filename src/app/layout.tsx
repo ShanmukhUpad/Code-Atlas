@@ -22,9 +22,9 @@ const fredoka = Fredoka({
 });
 
 export const metadata: Metadata = {
-  title: "Code Atlas — map any codebase",
+  title: "Code Atlas",
   description:
-    "Turn an unfamiliar codebase into an interactive Frutiger-Aero skill tree.",
+    "Understand an unfamiliar codebase as a connected system, not a pile of files.",
 };
 
 export default function RootLayout({
