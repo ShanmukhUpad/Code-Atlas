@@ -115,20 +115,20 @@ export function ImportPanel() {
     >
       <div className="pointer-events-none absolute left-1/2 top-3 h-1.5 w-16 -translate-x-1/2 rounded-full bg-gradient-to-b from-white/95 to-white/40 shadow-[0_1px_2px_rgba(4,30,70,0.35)]" />
       <div className="flex flex-col gap-5">
+        <GithubInput onSubmit={handleGithub} busy={busy} />
+
+        <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-widest text-ink-soft">
+          <span className="h-px flex-1 bg-white/60" />
+          or from files
+          <span className="h-px flex-1 bg-white/60" />
+        </div>
+
         <UploadDropzone
           onPicked={handlePicked}
           onScanStart={handleScanStart}
           onScanProgress={setScanCount}
           busy={busy}
         />
-
-        <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-widest text-ink-soft">
-          <span className="h-px flex-1 bg-white/60" />
-          or from GitHub
-          <span className="h-px flex-1 bg-white/60" />
-        </div>
-
-        <GithubInput onSubmit={handleGithub} busy={busy} />
 
         <ProgressArea
           phase={phase}
