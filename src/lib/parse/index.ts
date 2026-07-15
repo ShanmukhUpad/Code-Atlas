@@ -19,11 +19,13 @@ import {
   resolveCmakeRef,
   resolveHtmlRef,
 } from "./markup";
+import { extractGoComponents, resolveGoImport } from "./go";
 
 export const CODE_EXT_RE =
-  /\.(tsx?|jsx?|mjs|cjs|py|sv|svh|v|vh|c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|java|json|ipynb|cs|html?|shader|hlsl|cginc|compute|cmake)$/i;
+  /\.(tsx?|jsx?|mjs|cjs|py|sv|svh|v|vh|c|cc|cpp|cxx|c\+\+|cu|cuh|h|hh|hpp|hxx|h\+\+|java|json|ipynb|cs|html?|shader|hlsl|cginc|compute|cmake|go)$/i;
 const SV_EXT_RE = /\.(sv|svh|v|vh)$/i;
-const C_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+)$/i;
+// CUDA (.cu/.cuh) shares C/C++'s #include model, so it is parsed as C.
+const C_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|cu|cuh|h|hh|hpp|hxx|h\+\+)$/i;
 const SHADER_EXT_RE = /\.(shader|hlsl|cginc|compute)$/i;
 // CMakeLists.txt has no code extension — match it by basename.
 const CMAKE_RE = /(^|\/)CMakeLists\.txt$|\.cmake$/i;
@@ -214,6 +216,19 @@ function parseFile(file: RawFile): ParsedFile {
     };
   }
 
+  if (ext === ".go") {
+    const g = extractGoComponents(content);
+    return {
+      ...common,
+      lang: "go",
+      imports: g.imports,
+      exports: g.exports,
+      hasJsx: false,
+      hasMain: g.hasMain,
+      header: extractHeader(content),
+    };
+  }
+
   return {
     ...common,
     lang: "js",
@@ -289,6 +304,15 @@ function classifyRole(f: ParsedFile, fanIn: number, fanOut: number): NodeRole {
     return "util";
   }
 
+  if (f.lang === "go") {
+    if (f.hasMain) return "entry";
+    if (/_test\.go$/i.test(f.name)) return "util";
+    if (fanIn >= 4 && fanIn >= fanOut) return "hub";
+    if (fanOut >= 6) return "orchestrator";
+    if (fanIn === 0 && fanOut === 0) return "file";
+    return "util";
+  }
+
   if (f.lang === "java") {
     if (f.hasMain) return "entry";
     if (/Tests?\.java$/i.test(f.name) || /(^|\/)tests?\//i.test(f.path))
@@ -334,6 +358,15 @@ export function parseProject(rawFiles: RawFile[]): ParsedProject {
   const shaderFileSet = new Set(
     parsed.filter((p) => p.lang === "shader").map((p) => p.path),
   );
+
+  // Go imports resolve to a package = a directory of .go files.
+  const goDirs = new Map<string, string[]>();
+  for (const p of parsed) {
+    if (p.lang !== "go") continue;
+    const list = goDirs.get(p.dir) ?? [];
+    list.push(p.path);
+    goDirs.set(p.dir, list);
+  }
 
   // C# is name-based like SV: map every declared type name to its file, and
   // collect declared namespaces so internal `using`s aren't flagged as external.
@@ -406,6 +439,12 @@ export function parseProject(rawFiles: RawFile[]): ParsedProject {
       for (const spec of p.imports) {
         const target = resolveCmakeRef(spec, p.path, fileSet);
         if (target && target !== p.path) deps.add(target);
+      }
+    } else if (p.lang === "go") {
+      for (const path of p.imports) {
+        const { deps: d, external: ext } = resolveGoImport(path, goDirs);
+        for (const x of d) if (x !== p.path) deps.add(x);
+        if (ext) external.push(ext);
       }
     } else if (p.lang === "sv") {
       // Name-based refs (instantiations, `extends`, `::` scopes) → registry.

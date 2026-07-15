@@ -27,7 +27,8 @@ export type Lang =
   | "cs"
   | "html"
   | "shader"
-  | "cmake";
+  | "cmake"
+  | "go";
 
 /** A parsed Python import statement. */
 export interface PyImport {

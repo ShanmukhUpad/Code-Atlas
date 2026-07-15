@@ -56,6 +56,11 @@ export function extGlyph(ext: string): string {
     case ".c":
     case ".h":
       return "C";
+    case ".cu":
+    case ".cuh":
+      return "CU";
+    case ".go":
+      return "GO";
     case ".java":
       return "JV";
     case ".json":
