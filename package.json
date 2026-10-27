@@ -7,7 +7,8 @@
     "dev:next": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:skill": "esbuild scripts/skill-entry.ts --bundle --format=esm --platform=node --alias:@=./src --outfile=skill/codebase-mapper/scripts/lib/atlas.mjs --banner:js=\"// Generated from src/lib by npm run build:skill. Do not edit.\""
   },
   "dependencies": {
     "@aero-ui/tokens": "^1.4.0",
@@ -26,6 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^10.0.3",
+    "esbuild": "^0.25.12",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",

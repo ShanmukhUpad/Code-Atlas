@@ -42,9 +42,21 @@ ollama pull nemotron-mini        # fast on CPU (~4s/description)
 
 It's auto-detected on `localhost:11434` — no config needed. See `.env.example` for options (`OLLAMA_MODEL`, `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`). Without any model, Code Atlas uses solid heuristic descriptions.
 
+## Agent skill
+
+`skill/codebase-mapper/` packages the same parsers as a `SKILL.md` skill for Claude Code and other agents that read skills. The agent runs the parser, reads the important files itself, writes an explanation for each one, and renders `CODEBASE_MAP.md` plus an offline skill-tree page (`codebase-map.html`).
+
+```bash
+# Claude Code, available in every project:
+cp -r skill/codebase-mapper ~/.claude/skills/
+```
+
+Then ask for a map of any repo ("map this codebase", "where do I start?"). The scripts need Node 18+ and nothing else. After changing anything in `src/lib/parse` or `src/lib/explain/heuristic.ts`, run `npm run build:skill` to regenerate the skill's bundled copy.
+
 ## Scripts
 
 - `npm run dev` — Next dev server + Ollama.
 - `npm run dev:next` — Next only.
 - `npm run build` — production build.
 - `npm run lint` — ESLint.
+- `npm run build:skill` — rebundle the parsers into `skill/codebase-mapper/scripts/lib/atlas.mjs`.

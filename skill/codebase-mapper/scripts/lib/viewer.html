@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ · Codebase Mapper</title>
+<style>
+  :root {
+    --sky-top: #f2fbff; --sky-bottom: #c4e7fb; --ink: #0d2a44; --ink-soft: #4a6680;
+    --glass: rgba(255, 255, 255, 0.72); --glass-edge: rgba(255, 255, 255, 0.95);
+    --branch: rgba(40, 120, 180, 0.35); --uses: #2b8cff; --users: #ff4f97;
+    --font: "Segoe UI", "Frutiger", "Myriad Pro", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 15px/1.45 var(--font); color: var(--ink); overflow: hidden;
+    background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom));
+  }
+  svg#stage { position: fixed; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  svg#stage.dragging { cursor: grabbing; }
+  .branch { fill: none; stroke: var(--branch); stroke-width: 2; }
+  .link { fill: none; stroke-width: 2.5; stroke-dasharray: 6 5; }
+  .link.uses { stroke: var(--uses); }
+  .link.users { stroke: var(--users); }
+  .node { cursor: pointer; }
+  .node text.label { font-size: 13px; fill: var(--ink); text-anchor: start; paint-order: stroke; stroke: rgba(255,255,255,0.85); stroke-width: 3px; }
+  .node text.glyph { font-size: 10px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .node .shell { stroke: rgba(255,255,255,0.95); stroke-width: 1.5; transition: transform 160ms ease-out; transform-box: fill-box; transform-origin: center; }
+  .node:hover .shell { transform: scale(1.08); }
+  .node.selected .shell { stroke: var(--ink); stroke-width: 2.5; }
+  .faded { opacity: 0.28; }
+  header {
+    position: fixed; top: 16px; left: 16px; right: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    pointer-events: none;
+  }
+  header > * { pointer-events: auto; }
+  h1 { margin: 0 8px 0 0; font-size: 18px; font-weight: 650; }
+  button, input {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--glass); border: 1px solid var(--glass-edge);
+    border-radius: 8px; padding: 6px 12px; box-shadow: 0 1px 2px rgba(13, 42, 68, 0.12); backdrop-filter: blur(10px);
+  }
+  button { cursor: pointer; transition: transform 120ms ease-out; }
+  button:active { transform: scale(0.97); }
+  input { width: 220px; }
+  aside {
+    position: fixed; top: 64px; right: 16px; bottom: 16px; width: 360px; overflow: auto; padding: 20px;
+    background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 12px; backdrop-filter: blur(14px);
+    box-shadow: 0 8px 30px rgba(13, 42, 68, 0.12);
+  }
+  aside h2 { margin: 0 0 2px; font-size: 18px; word-break: break-word; }
+  aside .meta { color: var(--ink-soft); font-size: 13px; margin-bottom: 12px; word-break: break-all; }
+  aside .summary { font-weight: 600; margin: 0 0 8px; }
+  aside p { margin: 0 0 12px; }
+  aside h3 { font-size: 13px; margin: 16px 0 6px; color: var(--ink-soft); font-weight: 600; }
+  aside ul { list-style: none; margin: 0; padding: 0; }
+  aside li button { background: none; border: 0; box-shadow: none; padding: 2px 0; text-align: left; color: var(--uses); backdrop-filter: none; }
+  aside li button.user { color: var(--users); }
+  aside .source { color: var(--ink-soft); font-size: 12px; margin-top: 16px; }
+  .legend {
+    position: fixed; left: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; max-width: calc(100% - 410px);
+    padding: 8px 12px; background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 8px; backdrop-filter: blur(10px);
+  }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--c); vertical-align: -1px; }
+  @media (max-width: 760px) {
+    aside { top: auto; left: 16px; width: auto; max-height: 42vh; }
+    .legend { display: none; }
+    input { width: 150px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .node .shell, button { transition: none; } }
+</style>
+</head>
+<body>
+<svg id="stage" aria-label="Skill tree of the codebase">
+  <defs id="defs"></defs>
+  <g id="world"><g id="branches"></g><g id="links"></g><g id="nodes"></g></g>
+</svg>
+<header>
+  <h1 id="title"></h1>
+  <input id="search" list="paths" placeholder="Find a file" aria-label="Find a file">
+  <datalist id="paths"></datalist>
+  <button id="fit">Fit</button>
+  <button id="expand">Expand all</button>
+  <button id="collapse">Collapse</button>
+</header>
+<aside id="panel" aria-live="polite"></aside>
+<div class="legend" id="legend"></div>
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const ROLES = {
+  entry: ["Entry point", "#ffe58a", "#ffb43a"], hub: ["Core module", "#ffb3d4", "#ff5f9e"],
+  orchestrator: ["Coordinator", "#c9b8ff", "#8a63ff"], component: ["Component", "#a9d8ff", "#3a92ff"],
+  util: ["Helper", "#b6f5c8", "#37d07a"], config: ["Config", "#e3e6ee", "#aab0c2"], file: ["File", "#d7f4ff", "#7fd8ec"],
+};
+const GLYPH = { ".ts": "TS", ".tsx": "TSX", ".js": "JS", ".jsx": "JSX", ".mjs": "JS", ".cjs": "JS", ".py": "PY", ".go": "GO",
+  ".java": "JV", ".cs": "C#", ".c": "C", ".h": "H", ".cpp": "C++", ".hpp": "H++", ".cu": "CU", ".json": "{}", ".ipynb": "NB",
+  ".html": "</>", ".sv": "SV", ".v": "V", ".shader": "SL", ".hlsl": "HL", ".cmake": "CM", ".txt": "CM" };
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => {
+  const n = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (parent) parent.appendChild(n);
+  return n;
+};
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+// ---- tree ----
+const files = new Map(DATA.files.map((f) => [f.path, f]));
+const folders = new Map(DATA.folders.map((d) => [d.path, d]));
+const root = { path: "", name: DATA.root, kind: "folder", children: [], count: DATA.files.length };
+const nodes = new Map([["", root]]);
+const parentOf = (p) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+for (const d of [...folders.values()].sort((a, b) => a.path.split("/").length - b.path.split("/").length))
+  nodes.set(d.path, { ...d, kind: "folder", children: [] });
+for (const f of files.values()) nodes.set(f.path, { ...f, kind: "file" });
+for (const [p, n] of nodes) if (p !== "") nodes.get(parentOf(p)).children.push(n);
+for (const n of nodes.values())
+  n.children?.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "folder" ? -1 : 1));
+
+const expanded = new Set([""]);
+if (DATA.files.length <= 40) for (const d of folders.keys()) expanded.add(d);
+else for (const c of root.children) if (c.kind === "folder") expanded.add(c.path);
+let selected = null;
+
+// ---- gradients ----
+const defs = document.getElementById("defs");
+for (const [role, [, from, to]] of Object.entries({ ...ROLES, folder: ["", "#e6fbff", "#38b6e8"] })) {
+  const g = el("linearGradient", { id: `g-${role}`, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el("stop", { offset: "0", "stop-color": from }, g);
+  el("stop", { offset: "1", "stop-color": to }, g);
+}
+
+// ---- layout + draw ----
+const DX = 220, DY = 44;
+const pos = new Map();
+function layout() {
+  pos.clear();
+  let row = 0;
+  (function place(n, depth) {
+    const kids = n.kind === "folder" && expanded.has(n.path) ? n.children : [];
+    if (!kids.length) { pos.set(n.path, { x: depth * DX, y: row++ * DY }); return; }
+    kids.forEach((k) => place(k, depth + 1));
+    const ys = kids.map((k) => pos.get(k.path).y);
+    pos.set(n.path, { x: depth * DX, y: (ys[0] + ys[ys.length - 1]) / 2 });
+  })(root, 0);
+}
+const hex = (r) => Array.from({ length: 6 }, (_, i) => {
+  const a = Math.PI / 3 * i + Math.PI / 6;
+  return `${(r * Math.cos(a)).toFixed(1)},${(r * Math.sin(a)).toFixed(1)}`;
+}).join(" ");
+const trim = (s, n = 24) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+const visible = (p) => {
+  // nearest ancestor (or self) that is on screen
+  while (!pos.has(p)) p = parentOf(p);
+  return p;
+};
+
+function draw() {
+  layout();
+  const branches = document.getElementById("branches"), links = document.getElementById("links"), layer = document.getElementById("nodes");
+  branches.replaceChildren(); links.replaceChildren(); layer.replaceChildren();
+  for (const [p, { x, y }] of pos) {
+    if (p === "") continue;
+    const q = pos.get(parentOf(p));
+    el("path", { class: "branch", d: `M${q.x + 17},${q.y} C${q.x + DX / 2},${q.y} ${x - DX / 2},${y} ${x - 17},${y}` }, branches);
+  }
+  const related = new Set();
+  if (selected) {
+    const f = files.get(selected);
+    for (const [list, cls] of [[f.deps, "uses"], [f.users, "users"]])
+      for (const target of list) {
+        const t = visible(target);
+        related.add(t);
+        if (t === selected) continue;
+        const a = pos.get(selected), b = pos.get(t);
+        const bend = Math.max(40, Math.abs(a.y - b.y) / 3);
+        el("path", { class: `link ${cls}`, d: `M${a.x},${a.y} C${a.x + bend},${a.y - bend} ${b.x + bend},${b.y - bend} ${b.x},${b.y}` }, links);
+      }
+  }
+  for (const [p, { x, y }] of pos) {
+    const n = nodes.get(p);
+    const g = el("g", { class: "node", transform: `translate(${x},${y})`, tabindex: 0, role: "button",
+      "aria-label": n.kind === "folder" ? `Folder ${n.name}, ${n.count} files` : `${n.name}, ${ROLES[n.role][0]}` }, layer);
+    if (selected && p !== selected && !related.has(p)) g.classList.add("faded");
+    if (p === selected) g.classList.add("selected");
+    if (n.kind === "folder") {
+      el("circle", { class: "shell", r: 16, fill: "url(#g-folder)" }, g);
+      el("text", { class: "glyph", y: 0 }, g).textContent = expanded.has(p) ? "−" : n.count;
+    } else {
+      el("polygon", { class: "shell", points: hex(15), fill: `url(#g-${n.role})` }, g);
+      el("text", { class: "glyph" }, g).textContent = GLYPH[n.ext.toLowerCase()] ?? "•";
+    }
+    // Files label to the right; folders above-right so their outgoing branches stay clear.
+    const lab = n.kind === "folder" ? { x: 20, y: -12 } : { x: 22, y: 4 };
+    el("text", { class: "label", ...lab }, g).textContent = trim(n.name || DATA.root);
+    el("title", {}, g).textContent = n.summary ?? n.path;
+    const act = () => (n.kind === "folder" ? toggle(p) : select(p));
+    g.addEventListener("click", (e) => { e.stopPropagation(); act(); });
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } });
+  }
+  applyView();
+}
+
+function toggle(p) {
+  if (p === "") return;
+  expanded.has(p) ? expanded.delete(p) : expanded.add(p);
+  showFolder(p);
+  draw();
+}
+function reveal(p) {
+  for (let d = parentOf(p); ; d = parentOf(d)) { expanded.add(d); if (d === "") break; }
+}
+function select(p, center = false) {
+  selected = p;
+  reveal(p);
+  draw();
+  showFile(files.get(p));
+  if (center) centerOn(p);
+}
+
+// ---- panel ----
+const panel = document.getElementById("panel");
+const fileList = (paths, cls) => paths.length
+  ? `<ul>${paths.map((p) => `<li><button class="${cls}" data-path="${esc(p)}">${esc(p)}</button></li>`).join("")}</ul>`
+  : `<p class="meta">None</p>`;
+function showFile(f) {
+  panel.innerHTML = `<h2>${esc(f.name)}</h2>
+    <div class="meta">${ROLES[f.role][0]} · ${f.loc} lines · ${esc(f.path)}</div>
+    <p class="summary">${esc(f.summary)}</p><p>${esc(f.roleText)}</p>
+    <h3>Uses (${f.deps.length})</h3>${fileList(f.deps, "")}
+    <h3>Used by (${f.users.length})</h3>${fileList(f.users, "user")}
+    ${f.exports.length ? `<h3>Exports</h3><p>${esc(f.exports.join(", "))}</p>` : ""}
+    <div class="source">${f.source === "ai" ? "Explained by the agent" : "Heuristic description from the dependency graph"}</div>`;
+}
+function showFolder(p) {
+  const d = p === ""
+    ? { name: DATA.root, count: DATA.files.length, summary: "", roleText: DATA.overview, source: DATA.overview ? "ai" : "" }
+    : nodes.get(p);
+  panel.innerHTML = `<h2>${esc(d.name)}/</h2><div class="meta">${d.count} files${p ? ` · ${esc(p)}` : ""}</div>
+    ${d.summary ? `<p class="summary">${esc(d.summary)}</p>` : ""}<p>${esc(d.roleText ?? "")}</p>
+    ${d.source ? `<div class="source">${d.source === "ai" ? "Explained by the agent" : "Heuristic description from the dependency graph"}</div>` : ""}`;
+}
+panel.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-path]");
+  if (b) select(b.dataset.path, true);
+});
+
+// ---- pan / zoom ----
+const svg = document.getElementById("stage"), world = document.getElementById("world");
+let view = { x: 40, y: 0, k: 1 };
+const applyView = () => world.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+function fit() {
+  const xs = [...pos.values()].map((p) => p.x), ys = [...pos.values()].map((p) => p.y);
+  const w = Math.max(...xs) - Math.min(...xs) + 240, h = Math.max(...ys) - Math.min(...ys) + 80;
+  const narrow = innerWidth <= 760, availW = innerWidth - (narrow ? 32 : 420), availH = innerHeight * (narrow ? 0.5 : 1) - 90;
+  // Never shrink labels past readable; a tall tree starts at the top and pans instead.
+  view.k = Math.min(1.2, Math.max(narrow ? 0.7 : 0.85, Math.min(availW / w, availH / h)));
+  view.x = 16 + 40 * view.k - Math.min(...xs) * view.k + Math.max(0, (availW - w * view.k) / 2);
+  view.y = 80 + 40 * view.k - Math.min(...ys) * view.k + Math.max(0, (availH - h * view.k) / 2);
+  applyView();
+}
+function centerOn(p) {
+  const { x, y } = pos.get(p), narrow = innerWidth <= 760;
+  view.x = (narrow ? innerWidth : innerWidth - 400) / 2 - x * view.k;
+  view.y = (narrow ? innerHeight * 0.3 : innerHeight / 2) - y * view.k;
+  applyView();
+}
+let drag = null;
+svg.addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".node")) return;
+  drag = { x: e.clientX - view.x, y: e.clientY - view.y, moved: false };
+  svg.setPointerCapture(e.pointerId);
+  svg.classList.add("dragging");
+});
+svg.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  view.x = e.clientX - drag.x; view.y = e.clientY - drag.y; drag.moved = true;
+  applyView();
+});
+svg.addEventListener("pointerup", () => {
+  if (drag && !drag.moved && selected) { selected = null; draw(); showFolder(""); }
+  drag = null; svg.classList.remove("dragging");
+});
+svg.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const k = Math.min(3, Math.max(0.1, view.k * Math.exp(-e.deltaY * 0.0015)));
+  view.x = e.clientX - (e.clientX - view.x) * (k / view.k);
+  view.y = e.clientY - (e.clientY - view.y) * (k / view.k);
+  view.k = k;
+  applyView();
+}, { passive: false });
+
+// ---- header ----
+document.getElementById("title").textContent = DATA.root;
+document.getElementById("paths").innerHTML = DATA.files.map((f) => `<option value="${esc(f.path)}">`).join("");
+document.getElementById("search").addEventListener("change", (e) => { if (files.has(e.target.value)) select(e.target.value, true); });
+document.getElementById("fit").addEventListener("click", fit);
+document.getElementById("expand").addEventListener("click", () => { for (const d of folders.keys()) expanded.add(d); draw(); fit(); });
+document.getElementById("collapse").addEventListener("click", () => { expanded.clear(); expanded.add(""); selected = null; draw(); fit(); showFolder(""); });
+document.getElementById("legend").innerHTML = Object.values(ROLES).map(([label, , c]) => `<span style="--c:${c}">${label}</span>`).join("");
+
+draw();
+fit();
+showFolder("");
+</script>
+</body>
+</html>

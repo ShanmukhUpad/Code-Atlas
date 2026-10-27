@@ -35,3 +35,4 @@ Copy `.env.example` → `.env.local`. `ANTHROPIC_API_KEY` (optional, enables AI 
 - `npm run dev` — dev server.
 - `npm run build` — production build.
 - `npx tsc --noEmit` — typecheck.
+- `npm run build:skill` — regenerate the agent skill's parser bundle (`skill/codebase-mapper/`) after changing `src/lib/parse` or `src/lib/explain/heuristic.ts`.
